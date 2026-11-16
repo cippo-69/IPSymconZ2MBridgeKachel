@@ -1,0 +1,14 @@
+{
+    "id": "{3262760F-C2DC-46AA-B52D-93C4AF0A3875}",
+    "name": "Z2MBridgeKachel",
+    "type": 3,
+    "vendor": "",
+    "aliases": [
+        "Z2M Bridge Kachel"
+    ],
+    "parentRequirements": [],
+    "childRequirements": [],
+    "implemented": [],
+    "prefix": "Z2MK",
+    "url": "https://github.com/cippo-69/IPSymconZ2MBridgeKachel"
+}

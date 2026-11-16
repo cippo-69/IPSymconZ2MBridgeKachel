@@ -1,0 +1,231 @@
+<style>
+:root {
+  --zb-accent: #5ECAAB;    /* Akzentfarbe der Symcon-Kachel-Visu */
+  --zb-ok: #3DBE7A;
+  --zb-warn: #E8A33D;
+  --zb-bad: #E5534B;
+  --zb-fg: #1F2124;
+  --zb-bg: rgba(0,0,0,.045);
+  --zb-bg2: rgba(0,0,0,.075);
+  --zb-line: rgba(0,0,0,.12);
+  --zb-muted: rgba(0,0,0,.52);
+  --zb-top: 58px;          /* Platz für Titel und Vergrößern-Symbol der Symcon-Kachel */
+}
+/* Dark Mode: Bedienflächen deutlich heller als die Kachel */
+body.dark {
+  --zb-fg: #F2F3F5;
+  --zb-bg: rgba(255,255,255,.10);
+  --zb-bg2: rgba(255,255,255,.15);
+  --zb-line: rgba(255,255,255,.16);
+  --zb-muted: rgba(255,255,255,.6);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+body { font-family: 'Poppins', 'Work Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 14px; line-height: 1.35; }
+button { font: inherit; color: var(--zb-fg); }
+#zb, #zb div, #zb span, #zb b { color: var(--zb-fg); }
+#zb .lbl, #zb .sub, #zb .facts, #zb .facts span, #zb .kv span, #zb .hint { color: var(--zb-muted); }
+#zb .seg button.on, #zb .btn.solid, #zb .badge { color: #fff; }
+#zb .badge.warn { color: #3a2500; }
+#zb { position: absolute; inset: 0; padding: var(--zb-top) 16px 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.lbl { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
+
+/* Kopf: Status links, Fakten rechts */
+.head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.st { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.st .v { display: flex; align-items: center; gap: 10px; font-size: 26px; font-weight: 500; line-height: 1.1; }
+.dot { width: 12px; height: 12px; border-radius: 50%; flex: none; background: var(--zb-muted); }
+.dot.ok { background: var(--zb-ok); box-shadow: 0 0 0 4px rgba(61,190,122,.22); }
+.dot.bad { background: var(--zb-bad); box-shadow: 0 0 0 4px rgba(229,83,75,.22); }
+.dot.busy { background: var(--zb-warn); animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+.sub { font-size: 12px; }
+.facts { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 12px; text-align: right; }
+.facts b { font-weight: 600; }
+.badges { display: flex; flex-wrap: wrap; gap: 6px; }
+.badge { font-size: 11px; font-weight: 600; letter-spacing: .03em; padding: 3px 9px; border-radius: 999px; background: var(--zb-bad); }
+.badge.warn { background: var(--zb-warn); }
+
+/* Abschnitte */
+.card { background: var(--zb-bg); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; }
+.row .t { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.row .t b { font-weight: 500; }
+
+/* Schalter */
+.tg { position: relative; width: 56px; height: 32px; border-radius: 16px; background: var(--zb-line); border: 0; cursor: pointer; padding: 0; flex: none; touch-action: manipulation; }
+.tg::after { content: ""; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: left .15s; }
+.tg.on { background: var(--zb-accent); }
+.tg.on::after { left: 27px; }
+.tg:disabled { opacity: .45; cursor: default; }
+.prog { height: 6px; border-radius: 3px; background: var(--zb-line); overflow: hidden; }
+.prog i { display: block; height: 100%; background: var(--zb-accent); transition: width 1s linear; }
+
+/* Protokollstufe */
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--zb-bg2); border-radius: 12px; padding: 4px; }
+.seg button { border: 0; background: none; border-radius: 9px; min-height: 38px; cursor: pointer; font-size: 13px; padding: 4px 2px; touch-action: manipulation; }
+.seg button.on { background: var(--zb-accent); font-weight: 600; }
+.seg button:disabled { cursor: default; }
+
+/* Neustart */
+.btn { min-height: 40px; border: 1px solid var(--zb-bad); background: none; color: var(--zb-bad); border-radius: 999px; padding: 6px 16px; cursor: pointer; font-weight: 600; font-size: 13px; touch-action: manipulation; flex: none; }
+#zb .btn { color: var(--zb-bad); }
+.btn.solid { background: var(--zb-bad); }
+#zb .btn.solid { color: #fff; }
+.btn.plain { border-color: var(--zb-line); }
+#zb .btn.plain { color: var(--zb-fg); }
+.btn:disabled { opacity: .45; cursor: default; }
+.acts { display: flex; gap: 8px; }
+
+/* Details */
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; }
+.kv b { font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+.hint { font-size: 12px; }
+
+@media (max-width: 420px) {
+  #zb { padding-left: 12px; padding-right: 12px; }
+  .st .v { font-size: 22px; }
+  .card { padding: 12px; }
+}
+/* kleine Kachel: Status und Anlernen */
+body.compact #zb { gap: 8px; padding-bottom: 8px; }
+body.compact .more { display: none; }
+body.compact .st .v { font-size: 20px; }
+body.compact .card { padding: 8px 12px; gap: 6px; }
+</style>
+<div id="zb"></div>
+<script>
+var ZB = { s: null, confirm: false, confirmT: 0, sentLevel: null, offset: 0 };
+var LEVELS = [['error', 'Fehler'], ['warning', 'Warnung'], ['info', 'Info'], ['debug', 'Debug']];
+
+function handleMessage(data) {
+  try { ZB.s = typeof data === 'string' ? JSON.parse(data) : data; } catch (e) { return; }
+  if (ZB.s && ZB.s.now) ZB.offset = ZB.s.now * 1000 - Date.now();   // Uhrzeit des Servers für den Countdown
+  if (ZB.s && ZB.sentLevel === ZB.s.logLevel) ZB.sentLevel = null;
+  render();
+}
+function send(ident, value) { if (typeof requestAction === 'function') requestAction(ident, value); }
+function esc(t) { return String(t).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function now() { return Math.floor((Date.now() + ZB.offset) / 1000); }
+function since(ts) {
+  if (!ts) return '';
+  var d = new Date(ts * 1000), t = new Date(), same = d.toDateString() === t.toDateString();
+  return 'seit ' + (same ? '' : pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '. ') + pad(d.getHours()) + ':' + pad(d.getMinutes());
+}
+function mmss(sec) { sec = Math.max(0, sec); return Math.floor(sec / 60) + ':' + pad(sec % 60); }
+
+/* Hell/Dunkel aus der Textfarbe der Kachel-Visu (helle Schrift = Dark Mode), sonst Systemeinstellung */
+function theme() {
+  var b = document.body, m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(b).color || ''), dark;
+  if (m) dark = (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 > 0.5;
+  else dark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  b.classList.toggle('dark', dark);
+}
+
+/* Neustart läuft: angefordert vor weniger als 3 min und Bridge seitdem noch nicht wieder online gemeldet */
+function restarting(s) {
+  return s.restartAt > 0 && now() - s.restartAt < 180 && !(s.online && s.since >= s.restartAt);
+}
+
+function render() {
+  var s = ZB.s, el = document.getElementById('zb');
+  if (!s) return;
+  theme();
+  document.body.classList.toggle('compact', window.innerHeight < 300);
+  if (s.error) { el.innerHTML = '<div class="hint">' + esc(s.error) + '</div>'; return; }
+
+  var busy = restarting(s), h = '';
+  var cls = busy ? 'busy' : s.online === true ? 'ok' : s.online === false ? 'bad' : '';
+  var txt = busy ? 'Neustart …' : s.online === true ? 'Online' : s.online === false ? 'Offline' : 'Unbekannt';
+
+  h += '<div class="head"><div class="st"><div class="v"><span class="dot ' + cls + '"></span>' + txt + '</div>'
+    + '<div class="sub">' + (busy ? 'angefordert ' + since(s.restartAt).replace('seit ', 'um ') : since(s.since)) + '</div></div>'
+    + '<div class="facts">' + (s.version ? '<span>Z2M <b>' + esc(s.version) + '</b></span>' : '')
+    + (s.channel !== null ? '<span>Kanal <b>' + s.channel + '</b></span>' : '')
+    + '<span><b>' + s.devices + '</b> Geräte</span></div></div>';
+
+  var b = '';
+  if (!s.instOk) b += '<span class="badge">Bridge-Instanz gestört</span>';
+  if (s.restartRequired) b += '<span class="badge warn">Neustart erforderlich</span>';
+  if (!s.ext.loaded) b += '<span class="badge">Symcon-Erweiterung fehlt</span>';
+  else if (!s.ext.current) b += '<span class="badge warn">Erweiterung veraltet</span>';
+  if (b) h += '<div class="badges">' + b + '</div>';
+
+  // Anlernen
+  var left = s.join && s.joinEnd ? s.joinEnd - now() : 0;
+  h += '<div class="card"><div class="row"><div class="t"><b>Anlernen</b><span class="sub" id="jt">'
+    + (s.join ? (left > 0 ? 'Beitritt offen · noch ' + mmss(left) : 'Beitritt offen') : 'Beitritt gesperrt') + '</span></div>'
+    + '<button class="tg' + (s.join ? ' on' : '') + '" id="join" aria-label="Beitritt zum Netzwerk zulassen"' + (s.canJoin && s.online !== false ? '' : ' disabled') + '></button></div>';
+  if (s.join && s.joinEnd) {
+    var total = Math.max(1, s.joinEnd - (s.joinStart || s.joinEnd - 254));
+    h += '<div class="prog"><i id="jp" style="width:' + Math.max(0, Math.min(100, left / total * 100)) + '%"></i></div>';
+  }
+  h += '</div>';
+
+  // Protokollstufe
+  if (s.canLog) {
+    var lv = ZB.sentLevel || s.logLevel;
+    h += '<div class="card more"><span class="lbl">Protokollierung</span><div class="seg">';
+    LEVELS.forEach(function (l) { h += '<button data-l="' + l[0] + '"' + (l[0] === lv ? ' class="on"' : '') + (s.online === false ? ' disabled' : '') + '>' + l[1] + '</button>'; });
+    h += '</div></div>';
+  }
+
+  // Neustart
+  if (s.canRestart) {
+    h += '<div class="card more"><div class="row"><div class="t"><b>Zigbee2MQTT neu starten</b><span class="sub">'
+      + (ZB.confirm ? 'Alle Zigbee-Geräte sind ca. 1 Minute nicht erreichbar.' : 'Startet den Dienst auf der NAS neu.') + '</span></div>';
+    if (ZB.confirm) h += '<div class="acts"><button class="btn plain" id="rsNo">Abbrechen</button><button class="btn solid" id="rsYes">Neu starten</button></div>';
+    else h += '<button class="btn" id="rs"' + (busy ? ' disabled' : '') + '>Neustart</button>';
+    h += '</div></div>';
+  }
+
+  // Details
+  h += '<div class="card more"><span class="lbl">Versionen</span><div class="kv">'
+    + '<span>Zigbee2MQTT</span><b>' + esc(s.version || '–') + '</b>'
+    + '<span>Zigbee Herdsman</span><b>' + esc(s.zh || '–') + '</b>'
+    + '<span>Herdsman Converters</span><b>' + esc(s.zhc || '–') + '</b>'
+    + '<span>Symcon-Erweiterung</span><b>' + (s.ext.loaded ? esc(s.ext.version) + (s.ext.current ? ' · aktuell' : ' · veraltet') : 'nicht geladen') + '</b>'
+    + '</div></div>';
+
+  el.innerHTML = h;
+  bind();
+}
+
+function bind() {
+  var s = ZB.s;
+  var j = document.getElementById('join');
+  if (j) j.onclick = function () { if (!j.disabled) { j.classList.toggle('on'); send('PermitJoin', !s.join); } };
+  document.querySelectorAll('.seg button[data-l]').forEach(function (b) {
+    b.onclick = function () {
+      if (b.disabled || b.dataset.l === (ZB.sentLevel || s.logLevel)) return;
+      ZB.sentLevel = b.dataset.l; render();
+      send('LogLevel', b.dataset.l);
+    };
+  });
+  var rs = document.getElementById('rs');
+  if (rs) rs.onclick = function () {
+    ZB.confirm = true; render();
+    clearTimeout(ZB.confirmT);
+    ZB.confirmT = setTimeout(function () { ZB.confirm = false; render(); }, 8000);   // Rückfrage verfällt nach 8 s
+  };
+  var no = document.getElementById('rsNo');
+  if (no) no.onclick = function () { ZB.confirm = false; clearTimeout(ZB.confirmT); render(); };
+  var yes = document.getElementById('rsYes');
+  if (yes) yes.onclick = function () { ZB.confirm = false; clearTimeout(ZB.confirmT); send('Restart', true); };
+}
+
+/* Countdown und Neustart-Anzeige jede Sekunde nachführen, ohne neu zu zeichnen */
+setInterval(function () {
+  var s = ZB.s;
+  if (!s || s.error) return;
+  if (s.join && s.joinEnd) {
+    var left = s.joinEnd - now(), jt = document.getElementById('jt'), jp = document.getElementById('jp');
+    if (jt) jt.textContent = left > 0 ? 'Beitritt offen · noch ' + mmss(left) : 'Beitritt offen';
+    if (jp) jp.style.width = Math.max(0, Math.min(100, left / Math.max(1, s.joinEnd - (s.joinStart || s.joinEnd - 254)) * 100)) + '%';
+  }
+}, 1000);
+// Neustart-Anzeige läuft nach 3 min ohne Rückmeldung von selbst aus
+setInterval(function () { if (ZB.s && !ZB.s.error && !ZB.confirm && ZB.s.restartAt && now() - ZB.s.restartAt < 200) render(); }, 5000);
+window.addEventListener('resize', function () { if (ZB.s) render(); });
+</script>
