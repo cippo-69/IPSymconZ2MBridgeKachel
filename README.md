@@ -12,6 +12,9 @@ aus dem Modul [Schnittcher/IPS-Zigbee2MQTT](https://github.com/Schnittcher/IPS-Z
 - **Protokollierung**: Fehler / Warnung / Info / Debug
 - **Neustart** von Zigbee2MQTT mit Rückfrage (verfällt nach 8 s)
 - Versionen: Zigbee2MQTT, Zigbee Herdsman, Herdsman Converters, Symcon-Erweiterung
+- optional **Koordinator** (SMLIGHT, z. B. SLZB-06): Online-Status, Firmware, Zigbee-Firmware, Temperaturen, Laufzeit,
+  Verbindung zu Z2M (Socket-Clients) und Neustart mit Rückfrage. Abfrage über `/ha_info`, `/ha_sensors` und `/metrics`,
+  Neustart über `/api2?action=4&cmd=3` (wie die SMLIGHT-Bibliothek pysmlight). Ohne Anmeldung am Koordinator.
 
 Kleine Kachel (unter 300 px Höhe): nur Status und Anlernen. Protokollierung, Neustart und Versionen erscheinen ab 300 px Höhe.
 
@@ -29,6 +32,8 @@ Geschaltet wird über die Aktionen der Bridge-Variablen (`RequestAction`), also 
 | Zigbee2MQTT Bridge | Instanz des Moduls „Zigbee2MQTT Bridge“ |
 | Anlernzeit | Dauer, die die Bridge beim Anlernen sendet (Standard 254 s); nur für den Countdown. Gibt die Bridge eine Variable `permit_join_timeout` aus, gilt deren Wert. |
 | Akzentfarbe | Farbe der Schalter und der Auswahl |
+| Koordinator | optional: IP oder Hostname eines SMLIGHT-Koordinators; leer = kein Koordinator-Abschnitt |
+| Abfrage alle | Abfrageintervall des Koordinators (Standard 60 s; nach einem Neustart alle 10 s, bis er wieder antwortet) |
 
 ## Voraussetzungen
 

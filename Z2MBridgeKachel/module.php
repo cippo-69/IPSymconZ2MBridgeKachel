@@ -31,9 +31,15 @@ class Z2MBridgeKachel extends IPSModuleStrict
         $this->RegisterPropertyInteger('BridgeID', 0);
         $this->RegisterPropertyInteger('PermitJoinTime', 254);   // Zeit, die die Bridge beim Anlernen sendet (SetPermitJoin: 254 s)
         $this->RegisterPropertyInteger('AccentColor', 0x5ECAAB); // Türkis der Symcon-Kachel-Visu
+        $this->RegisterPropertyString('CoordinatorHost', '');    // optional: SMLIGHT-Koordinator (SLZB-06 u. a.), IP oder Hostname
+        $this->RegisterPropertyInteger('CoordinatorInterval', 60); // Abfrage in s
 
         $this->RegisterAttributeString('Watched', '[]');
         $this->RegisterAttributeInteger('RestartAt', 0);
+        $this->RegisterAttributeString('Coordinator', '{}');
+        $this->RegisterAttributeInteger('CoordRestartAt', 0);
+
+        $this->RegisterTimer('CoordinatorUpdate', 0, 'Z2MK_UpdateCoordinator($_IPS[\'TARGET\']);');
 
         $this->SetVisualizationType(1);
     }
@@ -47,6 +53,16 @@ class Z2MBridgeKachel extends IPSModuleStrict
         }
         foreach ($this->GetReferenceList() as $ref) {
             $this->UnregisterReference($ref);
+        }
+
+        if ($this->CoordHost() === '') {
+            $this->SetTimerInterval('CoordinatorUpdate', 0);
+            $this->WriteAttributeString('Coordinator', '{}');
+        } else {
+            $this->SetTimerInterval('CoordinatorUpdate', max(10, $this->ReadPropertyInteger('CoordinatorInterval')) * 1000);
+            if (IPS_GetKernelRunlevel() === KR_READY) {
+                $this->UpdateCoordinator();
+            }
         }
 
         $watch = [];
@@ -100,12 +116,88 @@ class Z2MBridgeKachel extends IPSModuleStrict
                     RequestAction($vars['restart_request'], 0);
                 }
                 break;
+            case 'RestartCoordinator':
+                $this->RestartCoordinator();
+                break;
             case 'Refresh':
                 break;
             default:
                 throw new Exception('Unbekannte Aktion: ' . $Ident);
         }
         $this->Push();
+    }
+
+    /* ---------- Koordinator (SMLIGHT, z. B. SLZB-06) ---------- */
+
+    /** Fragt /ha_info, /ha_sensors und /metrics des Koordinators ab (Timer). */
+    public function UpdateCoordinator(): bool
+    {
+        $host = $this->CoordHost();
+        if ($host === '') {
+            return false;
+        }
+        $old = json_decode($this->ReadAttributeString('Coordinator'), true) ?: [];
+        $info = json_decode((string) $this->HttpGet($host, '/ha_info'), true);
+        $sens = is_array($info) ? json_decode((string) $this->HttpGet($host, '/ha_sensors'), true) : null;
+        $c = ['ts' => time(), 'ok' => is_array($info) && isset($info['Info']), 'lastOk' => (int) ($old['lastOk'] ?? 0)];
+        if ($c['ok']) {
+            $i = $info['Info'];
+            $s = is_array($sens) ? ($sens['Sensors'] ?? []) : [];
+            $c['lastOk'] = $c['ts'];
+            $c += [
+                'model'      => (string) ($i['model'] ?? ''),
+                'hostname'   => (string) ($i['hostname'] ?? ''),
+                'fw'         => (string) ($i['sw_version'] ?? ''),
+                'zbHw'       => (string) ($i['zb_hw'] ?? ''),
+                'zbFw'       => (string) ($i['zb_version'] ?? ''),
+                'zbType'     => isset($i['zb_type']) ? (int) $i['zb_type'] : null,   // 0 = Koordinator, 1 = Router
+                'mode'       => isset($i['coord_mode']) ? (int) $i['coord_mode'] : null, // 0 = LAN, 1 = WLAN, 2 = USB
+                'ethernet'   => isset($s['ethernet']) ? (bool) $s['ethernet'] : null,
+                'espTemp'    => isset($s['esp32_temp']) ? round((float) $s['esp32_temp'], 1) : null,
+                'zbTemp'     => isset($s['zb_temp']) ? round((float) $s['zb_temp'], 1) : null,
+                'uptime'     => isset($s['uptime']) ? (int) $s['uptime'] : null,
+                'sockUptime' => isset($s['socket_uptime']) ? (int) $s['socket_uptime'] : null,
+                'clients'    => null
+            ];
+            $m = (string) $this->HttpGet($host, '/metrics');
+            if (preg_match('/smlight_socket_clients\{\}\s+(\d+)/', $m, $r)) {
+                $c['clients'] = (int) $r[1];
+            }
+        }
+        $this->WriteAttributeString('Coordinator', json_encode($c));
+        // nach einem Neustart schneller nachfragen, bis er wieder antwortet
+        $fast = $this->ReadAttributeInteger('CoordRestartAt') > 0 && time() - $this->ReadAttributeInteger('CoordRestartAt') < 180;
+        $this->SetTimerInterval('CoordinatorUpdate', ($fast && !($c['ok'] && ($c['uptime'] ?? 1e9) < 300) ? 10 : max(10, $this->ReadPropertyInteger('CoordinatorInterval'))) * 1000);
+        $this->Push();
+        return $c['ok'];
+    }
+
+    private function RestartCoordinator(): void
+    {
+        $host = $this->CoordHost();
+        if ($host === '') {
+            return;
+        }
+        $this->WriteAttributeInteger('CoordRestartAt', time());
+        $this->LogMessage('Neustart des Zigbee-Koordinators ' . $host . ' über die Kachel angefordert', KL_NOTIFY);
+        // SMLIGHT-API: action 4 = Befehl, cmd 3 = Neustart des Geräts (ESP32)
+        $r = $this->HttpGet($host, '/api2?action=4&cmd=3');
+        if ($r === null) {
+            $this->LogMessage('Koordinator ' . $host . ': Neustart-Befehl ohne Antwort', KL_WARNING);
+        }
+        $this->SetTimerInterval('CoordinatorUpdate', 10 * 1000);
+    }
+
+    private function CoordHost(): string
+    {
+        return trim(preg_replace('#^https?://#i', '', trim($this->ReadPropertyString('CoordinatorHost'))), '/');
+    }
+
+    private function HttpGet(string $host, string $path): ?string
+    {
+        $ctx = stream_context_create(['http' => ['timeout' => 3, 'ignore_errors' => false, 'header' => "Accept: application/json\r\n"]]);
+        $r = @file_get_contents('http://' . $host . $path, false, $ctx);
+        return $r === false ? null : $r;
     }
 
     /* ---------- Zustand ---------- */
@@ -170,8 +262,15 @@ class Z2MBridgeKachel extends IPSModuleStrict
             'restartAt' => $this->ReadAttributeInteger('RestartAt'),
             'join'      => false,
             'joinEnd'   => 0,
-            'devices'   => $this->DeviceCount($bid)
+            'devices'   => $this->DeviceCount($bid),
+            'coord'     => null
         ];
+        if ($this->CoordHost() !== '') {
+            $c = json_decode($this->ReadAttributeString('Coordinator'), true) ?: [];
+            $c['host'] = $this->CoordHost();
+            $c['restartAt'] = $this->ReadAttributeInteger('CoordRestartAt');
+            $s['coord'] = $c;
+        }
 
         if (isset($v['permit_join']) && GetValue($v['permit_join'])) {
             $s['join'] = true;

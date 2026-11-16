@@ -76,6 +76,10 @@ button { font: inherit; color: var(--zb-fg); }
 #zb .btn.plain { color: var(--zb-fg); }
 .btn:disabled { opacity: .45; cursor: default; }
 .acts { display: flex; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 5px 12px; border-radius: 999px; background: var(--zb-bg2); flex: none; white-space: nowrap; }
+.chip .dot { width: 9px; height: 9px; }
+.card .row + .row { border-top: 1px solid var(--zb-line); padding-top: 10px; }
+.card .kv + .row { border-top: 1px solid var(--zb-line); padding-top: 10px; }
 
 /* Details */
 .kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; }
@@ -95,7 +99,8 @@ body.compact .card { padding: 8px 12px; gap: 6px; }
 </style>
 <div id="zb"></div>
 <script>
-var ZB = { s: null, confirm: false, confirmT: 0, sentLevel: null, offset: 0 };
+// confirm: '' oder welcher Neustart gerade bestätigt werden soll ('z2m' / 'coord')
+var ZB = { s: null, confirm: '', confirmT: 0, sentLevel: null, offset: 0 };
 var LEVELS = [['error', 'Fehler'], ['warning', 'Warnung'], ['info', 'Info'], ['debug', 'Debug']];
 
 function handleMessage(data) {
@@ -114,6 +119,49 @@ function since(ts) {
   return 'seit ' + (same ? '' : pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '. ') + pad(d.getHours()) + ':' + pad(d.getMinutes());
 }
 function mmss(sec) { sec = Math.max(0, sec); return Math.floor(sec / 60) + ':' + pad(sec % 60); }
+function dur(sec) {
+  if (sec === null || sec === undefined) return '–';
+  var d = Math.floor(sec / 86400), h = Math.floor(sec % 86400 / 3600), m = Math.floor(sec % 3600 / 60);
+  return d > 0 ? d + ' T ' + h + ' h' : h > 0 ? h + ' h ' + m + ' min' : m + ' min';
+}
+function num(v, d) { return v === null || v === undefined ? '–' : Number(v).toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d }); }
+
+/* Koordinator: Neustart läuft, bis er mit kleiner Laufzeit wieder antwortet (höchstens 3 min) */
+function coordRestarting(c) {
+  if (!c || !c.restartAt || now() - c.restartAt >= 180) return false;
+  return !(c.ok && c.ts > c.restartAt && c.uptime !== null && c.uptime <= c.ts - c.restartAt + 5);
+}
+
+/* Zeile „neu starten“ mit Rückfrage; key = 'z2m' oder 'coord' */
+function restartRow(key, title, info, warn, busy) {
+  var h = '<div class="row"><div class="t"><b>' + title + '</b><span class="sub">' + (ZB.confirm === key ? warn : info) + '</span></div>';
+  if (ZB.confirm === key) h += '<div class="acts"><button class="btn plain" data-no="1">Abbrechen</button><button class="btn solid" data-yes="' + key + '">Neu starten</button></div>';
+  else h += '<button class="btn" data-rs="' + key + '"' + (busy ? ' disabled' : '') + '>Neustart</button>';
+  return h + '</div>';
+}
+
+function coordCard(c) {
+  var busy = coordRestarting(c), cls = busy ? 'busy' : c.ok ? 'ok' : c.ts ? 'bad' : '';
+  var st = busy ? 'Neustart …' : c.ok ? 'Online' : c.ts ? 'nicht erreichbar' : 'wird abgefragt';
+  var mode = c.mode === 0 ? 'LAN' : c.mode === 1 ? 'WLAN' : c.mode === 2 ? 'USB' : '';
+  var title = [c.model || 'Koordinator', c.zbHw, mode].filter(Boolean).join(' · ');
+  var h = '<div class="card more"><div class="row"><div class="t"><span class="lbl">Koordinator</span><b>' + esc(title) + '</b></div>'
+    + '<span class="chip"><span class="dot ' + cls + '"></span>' + st + '</span></div>';
+  if (c.ok) {
+    h += '<div class="kv">'
+      + '<span>Firmware</span><b>' + esc(c.fw || '–') + '</b>'
+      + '<span>Zigbee-Firmware</span><b>' + esc(c.zbFw || '–') + (c.zbType === 1 ? ' · Router!' : '') + '</b>'
+      + '<span>Temperatur</span><b>' + num(c.espTemp, 1) + ' °C · Funk ' + num(c.zbTemp, 1) + ' °C</b>'
+      + '<span>Laufzeit</span><b>' + dur(c.uptime) + '</b>'
+      + '<span>Verbindung Z2M</span><b>' + (c.clients === 0 ? 'keine' : (c.clients > 1 ? c.clients + ' Clients · ' : '') + 'seit ' + dur(c.sockUptime)) + '</b>'
+      + '</div>';
+  } else if (c.ts) {
+    h += '<div class="hint">' + esc(c.host) + ' antwortet nicht' + (c.lastOk ? ', zuletzt erreichbar ' + since(c.lastOk).replace('seit ', 'um ') : '') + '.</div>';
+  }
+  h += restartRow('coord', 'Koordinator neu starten', 'Startet ' + esc(c.hostname || c.host) + ' neu (ca. 30 s).',
+    'Zigbee ist bis zu 1 Minute weg, Z2M verbindet sich danach neu.', busy);
+  return h + '</div>';
+}
 
 /* Hell/Dunkel aus der Textfarbe der Kachel-Visu (helle Schrift = Dark Mode), sonst Systemeinstellung */
 function theme() {
@@ -150,6 +198,11 @@ function render() {
   if (s.restartRequired) b += '<span class="badge warn">Neustart erforderlich</span>';
   if (!s.ext.loaded) b += '<span class="badge">Symcon-Erweiterung fehlt</span>';
   else if (!s.ext.current) b += '<span class="badge warn">Erweiterung veraltet</span>';
+  var c = s.coord;
+  if (c && c.ts && !coordRestarting(c)) {
+    if (!c.ok) b += '<span class="badge">Koordinator nicht erreichbar</span>';
+    else if (c.clients === 0) b += '<span class="badge warn">Z2M nicht mit Koordinator verbunden</span>';
+  }
   if (b) h += '<div class="badges">' + b + '</div>';
 
   // Anlernen
@@ -173,12 +226,12 @@ function render() {
 
   // Neustart
   if (s.canRestart) {
-    h += '<div class="card more"><div class="row"><div class="t"><b>Zigbee2MQTT neu starten</b><span class="sub">'
-      + (ZB.confirm ? 'Alle Zigbee-Geräte sind ca. 1 Minute nicht erreichbar.' : 'Startet den Dienst auf der NAS neu.') + '</span></div>';
-    if (ZB.confirm) h += '<div class="acts"><button class="btn plain" id="rsNo">Abbrechen</button><button class="btn solid" id="rsYes">Neu starten</button></div>';
-    else h += '<button class="btn" id="rs"' + (busy ? ' disabled' : '') + '>Neustart</button>';
-    h += '</div></div>';
+    h += '<div class="card more">' + restartRow('z2m', 'Zigbee2MQTT neu starten', 'Startet den Dienst auf der NAS neu.',
+      'Alle Zigbee-Geräte sind ca. 1 Minute nicht erreichbar.', busy) + '</div>';
   }
+
+  // Koordinator
+  if (c) h += coordCard(c);
 
   // Details
   h += '<div class="card more"><span class="lbl">Versionen</span><div class="kv">'
@@ -203,16 +256,24 @@ function bind() {
       send('LogLevel', b.dataset.l);
     };
   });
-  var rs = document.getElementById('rs');
-  if (rs) rs.onclick = function () {
-    ZB.confirm = true; render();
-    clearTimeout(ZB.confirmT);
-    ZB.confirmT = setTimeout(function () { ZB.confirm = false; render(); }, 8000);   // Rückfrage verfällt nach 8 s
-  };
-  var no = document.getElementById('rsNo');
-  if (no) no.onclick = function () { ZB.confirm = false; clearTimeout(ZB.confirmT); render(); };
-  var yes = document.getElementById('rsYes');
-  if (yes) yes.onclick = function () { ZB.confirm = false; clearTimeout(ZB.confirmT); send('Restart', true); };
+  document.querySelectorAll('[data-rs]').forEach(function (b) {
+    b.onclick = function () {
+      if (b.disabled) return;
+      ZB.confirm = b.dataset.rs; render();
+      clearTimeout(ZB.confirmT);
+      ZB.confirmT = setTimeout(function () { ZB.confirm = ''; render(); }, 8000);   // Rückfrage verfällt nach 8 s
+    };
+  });
+  document.querySelectorAll('[data-no]').forEach(function (b) {
+    b.onclick = function () { ZB.confirm = ''; clearTimeout(ZB.confirmT); render(); };
+  });
+  document.querySelectorAll('[data-yes]').forEach(function (b) {
+    b.onclick = function () {
+      var key = b.dataset.yes;
+      ZB.confirm = ''; clearTimeout(ZB.confirmT);
+      send(key === 'coord' ? 'RestartCoordinator' : 'Restart', true);
+    };
+  });
 }
 
 /* Countdown und Neustart-Anzeige jede Sekunde nachführen, ohne neu zu zeichnen */
@@ -226,6 +287,10 @@ setInterval(function () {
   }
 }, 1000);
 // Neustart-Anzeige läuft nach 3 min ohne Rückmeldung von selbst aus
-setInterval(function () { if (ZB.s && !ZB.s.error && !ZB.confirm && ZB.s.restartAt && now() - ZB.s.restartAt < 200) render(); }, 5000);
+setInterval(function () {
+  var s = ZB.s;
+  if (!s || s.error || ZB.confirm) return;
+  if ((s.restartAt && now() - s.restartAt < 200) || (s.coord && s.coord.restartAt && now() - s.coord.restartAt < 200)) render();
+}, 5000);
 window.addEventListener('resize', function () { if (ZB.s) render(); });
 </script>
