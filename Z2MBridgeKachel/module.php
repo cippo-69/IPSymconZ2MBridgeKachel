@@ -8,6 +8,8 @@ declare(strict_types=1);
  * Bedienkachel für eine Instanz „Zigbee2MQTT Bridge“ (Modul Schnittcher/IPS-Zigbee2MQTT):
  * Status, Versionen, Netzwerkkanal, Anzahl Geräte, Anlernen (permit_join) mit Countdown,
  * Protokollstufe und Neustart (mit Rückfrage).
+ * Ab 0.3: neu angelernte Geräte (aus zigbee2mqtt/bridge/event) mit Interview-Status und Umbenennen.
+ * Dafür hängt die Instanz wie die Bridge am MQTT-Server und liest dort mit.
  *
  * Geschaltet wird über die Aktionen der Bridge-Variablen (RequestAction), also genau wie in der Konsole.
  */
@@ -16,6 +18,8 @@ class Z2MBridgeKachel extends IPSModuleStrict
     private const BRIDGE_GUID = '{00160D82-9E2F-D1BD-6D0B-952F945332C5}';
     private const DEVICE_GUID = '{E5BB36C6-A70B-EB23-3716-9151A09AC8A2}';
     private const LOG_LEVELS = ['error', 'warning', 'info', 'debug'];
+    private const NEW_MAX = 20;          // gemerkte neue Geräte
+    private const NEW_SHOW_DAYS = 7;     // so lange erscheinen sie in der Kachel
 
     // Idents der Bridge-Variablen
     private const IDENTS = [
@@ -38,6 +42,7 @@ class Z2MBridgeKachel extends IPSModuleStrict
         $this->RegisterAttributeInteger('RestartAt', 0);
         $this->RegisterAttributeString('Coordinator', '{}');
         $this->RegisterAttributeInteger('CoordRestartAt', 0);
+        $this->RegisterAttributeString('NewDevices', '[]');
 
         $this->RegisterTimer('CoordinatorUpdate', 0, 'Z2MK_UpdateCoordinator($_IPS[\'TARGET\']);');
 
@@ -74,6 +79,10 @@ class Z2MBridgeKachel extends IPSModuleStrict
             return;
         }
         $this->RegisterReference($bid);
+        // nur Ereignisse und Antworten zum Umbenennen der Bridge empfangen
+        // .{1,2} statt / : passt auf / und auf \/ (falls der Schrägstrich im JSON maskiert ist)
+        $base = preg_quote($this->BaseTopic($bid));
+        $this->SetReceiveDataFilter('.*"Topic":"' . $base . '.{1,2}bridge.{1,2}(event|response.{1,2}device.{1,2}rename)".*');
         foreach ($this->Vars() as $vid) {
             $this->RegisterMessage($vid, VM_UPDATE);
             $watch[] = [$vid, VM_UPDATE];
@@ -119,12 +128,272 @@ class Z2MBridgeKachel extends IPSModuleStrict
             case 'RestartCoordinator':
                 $this->RestartCoordinator();
                 break;
+            case 'RenameDevice':
+                $p = json_decode((string) $Value, true);
+                if (is_array($p)) {
+                    $this->RenameDevice((string) ($p['ieee'] ?? ''), trim((string) ($p['to'] ?? '')));
+                }
+                break;
+            case 'DismissDevice':
+                $this->EditNew(function (array &$list) use ($Value) {
+                    foreach ($list as &$d) {
+                        if ($d['ieee'] === (string) $Value) {
+                            $d['hidden'] = true;
+                        }
+                    }
+                });
+                break;
             case 'Refresh':
                 break;
             default:
                 throw new Exception('Unbekannte Aktion: ' . $Ident);
         }
         $this->Push();
+    }
+
+    /* ---------- Neue Geräte (zigbee2mqtt/bridge/event) ---------- */
+
+    public function ReceiveData(string $JSONString): string
+    {
+        $d = json_decode($JSONString, true);
+        if (!is_array($d) || !isset($d['Topic'])) {
+            return '';
+        }
+        $payload = $this->DecodePayload((string) ($d['Payload'] ?? ''));
+        if (!is_array($payload)) {
+            return '';
+        }
+        $topic = substr((string) $d['Topic'], strlen($this->BaseTopic($this->ReadPropertyInteger('BridgeID'))) + 1);
+        if ($topic === 'bridge/event') {
+            $this->HandleEvent((string) ($payload['type'] ?? ''), (array) ($payload['data'] ?? []));
+        } elseif ($topic === 'bridge/response/device/rename') {
+            $this->HandleRenameResponse($payload);
+        }
+        return '';
+    }
+
+    private function HandleEvent(string $type, array $data): void
+    {
+        $ieee = (string) ($data['ieee_address'] ?? '');
+        if ($ieee === '' || !in_array($type, ['device_joined', 'device_interview', 'device_leave'], true)) {
+            return;   // device_announce kommt auch von bekannten Geräten und wird nicht gezeigt
+        }
+        $name = (string) ($data['friendly_name'] ?? $ieee);
+        $this->SendDebug('Ereignis', $type . ' ' . $name . ' ' . json_encode($data), 0);
+        $this->EditNew(function (array &$list) use ($type, $data, $ieee, $name) {
+            $i = $this->FindNew($list, $ieee);
+            if ($i === null) {
+                if ($type === 'device_leave') {
+                    return;   // unbekanntes Gerät verlässt das Netz: nicht anzeigen
+                }
+                array_unshift($list, ['ieee' => $ieee, 'name' => $name, 'joined' => time(), 'status' => 'joined', 'hidden' => false]);
+                $i = 0;
+            }
+            $e = &$list[$i];
+            $e['name'] = $name;
+            $e['updated'] = time();
+            if ($type === 'device_joined') {
+                $e['status'] = 'joined';
+                $e['hidden'] = false;
+            } elseif ($type === 'device_interview') {
+                $st = (string) ($data['status'] ?? '');
+                $e['status'] = ['started' => 'interview', 'successful' => 'ok', 'failed' => 'failed'][$st] ?? $e['status'];
+                if ($st === 'successful') {
+                    $def = (array) ($data['definition'] ?? []);
+                    $e['supported'] = (bool) ($data['supported'] ?? true);
+                    $e['vendor'] = (string) ($def['vendor'] ?? '');
+                    $e['model'] = (string) ($def['model'] ?? '');
+                    $e['desc'] = (string) ($def['description'] ?? '');
+                }
+                $e['hidden'] = false;
+            } elseif ($type === 'device_leave') {
+                $e['status'] = 'left';
+            }
+        });
+        if ($type === 'device_interview' && ($data['status'] ?? '') === 'successful') {
+            $this->LogMessage('Zigbee: neues Gerät angelernt: ' . $name . ' (' . $ieee . ')', KL_NOTIFY);
+        }
+    }
+
+    private function RenameDevice(string $ieee, string $to): void
+    {
+        $bid = $this->ReadPropertyInteger('BridgeID');
+        $list = $this->ReadNew();
+        $i = $this->FindNew($list, $ieee);
+        if ($i === null || !$this->BridgeOk($bid)) {
+            return;
+        }
+        $from = $list[$i]['name'];
+        $err = $this->CheckName($to, $from);
+        if ($err === '') {
+            $this->EditNew(function (array &$l) use ($ieee, $to) {
+                $k = $this->FindNew($l, $ieee);
+                if ($k !== null) {
+                    $l[$k]['renameTo'] = $to;
+                    $l[$k]['renameAt'] = time();
+                    $l[$k]['renameError'] = '';
+                }
+            });
+            $this->Push();
+            $this->SendDebug('Umbenennen', $from . ' -> ' . $to, 0);
+            // Z2M_RenameDevice wartet bis zu 5 s auf die Antwort; das Ergebnis (ok/error) kommt über bridge/response/device/rename
+            if (!@Z2M_RenameDevice($bid, $from, $to)) {
+                $err = 'Zigbee2MQTT antwortet nicht';
+            }
+        }
+        if ($err !== '') {
+            $this->EditNew(function (array &$l) use ($ieee, $err, $to) {
+                $k = $this->FindNew($l, $ieee);
+                // nur, wenn die Antwort von Z2M nicht schon verarbeitet ist
+                if ($k !== null && ($l[$k]['name'] !== $to || ($l[$k]['renameTo'] ?? '') !== '')) {
+                    $l[$k]['renameTo'] = '';
+                    $l[$k]['renameError'] = $err;
+                }
+            });
+        }
+    }
+
+    private function HandleRenameResponse(array $p): void
+    {
+        $from = (string) ($p['data']['from'] ?? '');
+        $to = (string) ($p['data']['to'] ?? '');
+        $ok = ($p['status'] ?? '') === 'ok';
+        $this->SendDebug('Antwort Umbenennen', json_encode($p), 0);
+        $hit = false;
+        $this->EditNew(function (array &$l) use ($from, $to, $ok, $p, &$hit) {
+            foreach ($l as &$e) {
+                if (($e['renameTo'] ?? '') !== '' && ($e['name'] === $from || $e['ieee'] === $from)) {
+                    $hit = true;
+                    if ($ok) {
+                        $e['name'] = $to !== '' ? $to : $e['renameTo'];
+                        $e['renameError'] = '';
+                    } else {
+                        $e['renameError'] = (string) ($p['error'] ?? 'Umbenennen abgelehnt');
+                    }
+                    $e['renameTo'] = '';
+                }
+            }
+        });
+        if ($ok && $from !== '' && $to !== '') {
+            $this->FollowRename($from, $to);
+            if (!$hit) {
+                $this->Push();
+            }
+        }
+    }
+
+    /** Symcon-Geräteinstanzen mit dem alten Topic auf den neuen Namen umstellen (sonst verlieren sie die Verbindung). */
+    private function FollowRename(string $from, string $to): void
+    {
+        foreach ($this->DeviceInstances() as $id) {
+            if (IPS_GetProperty($id, 'MQTTTopic') !== $from) {
+                continue;
+            }
+            IPS_SetProperty($id, 'MQTTTopic', $to);
+            if (IPS_GetName($id) === $from) {
+                IPS_SetName($id, $to);
+            }
+            IPS_ApplyChanges($id);
+            $this->LogMessage('Zigbee: Instanz ' . $id . ' folgt der Umbenennung ' . $from . ' -> ' . $to, KL_NOTIFY);
+        }
+    }
+
+    /** Leer = Name zulässig, sonst Fehlertext */
+    private function CheckName(string $to, string $from): string
+    {
+        if ($to === '') {
+            return 'Name fehlt';
+        }
+        if ($to === $from) {
+            return 'Name ist unverändert';
+        }
+        if (strlen($to) > 100 || preg_match('/[+#]|^\/|\/$|\/\/|\/\d+$|\/(set|get)$/', $to)) {
+            return 'Name nicht zulässig (keine + # und kein / am Anfang oder Ende)';
+        }
+        foreach ($this->DeviceInstances() as $id) {
+            if (IPS_GetProperty($id, 'MQTTTopic') === $to) {
+                return 'Name ist schon vergeben (Instanz ' . $id . ')';
+            }
+        }
+        return '';
+    }
+
+    /** Zigbee2MQTT-Geräteinstanzen am selben MQTT-Server wie die Bridge */
+    private function DeviceInstances(): array
+    {
+        $bid = $this->ReadPropertyInteger('BridgeID');
+        if (!$this->BridgeOk($bid)) {
+            return [];
+        }
+        $parent = IPS_GetInstance($bid)['ConnectionID'];
+        return array_values(array_filter(IPS_GetInstanceListByModuleID(self::DEVICE_GUID), fn ($id) => IPS_GetInstance($id)['ConnectionID'] === $parent));
+    }
+
+    private function BaseTopic(int $bid): string
+    {
+        $t = $this->BridgeOk($bid) ? (string) @IPS_GetProperty($bid, 'MQTTBaseTopic') : '';
+        return $t !== '' ? $t : 'zigbee2mqtt';
+    }
+
+    private function DecodePayload(string $p): ?array
+    {
+        $r = json_decode($p, true);
+        if (!is_array($r) && $p !== '' && ctype_xdigit($p) && strlen($p) % 2 === 0) {
+            $r = json_decode((string) hex2bin($p), true);   // Payload hexkodiert
+        }
+        if (!is_array($r) && function_exists('mb_convert_encoding')) {
+            $r = json_decode(mb_convert_encoding($p, 'UTF-8', 'ISO-8859-1'), true);   // Payload als Latin-1
+        }
+        return is_array($r) ? $r : null;
+    }
+
+    private function ReadNew(): array
+    {
+        return json_decode($this->ReadAttributeString('NewDevices'), true) ?: [];
+    }
+
+    private function FindNew(array $list, string $ieee): ?int
+    {
+        foreach ($list as $i => $e) {
+            if (($e['ieee'] ?? '') === $ieee) {
+                return $i;
+            }
+        }
+        return null;
+    }
+
+    /** Liste unter Sperre ändern (Empfang und Bedienung laufen in verschiedenen Threads) und an die Kachel senden */
+    private function EditNew(callable $fn): void
+    {
+        $sem = 'Z2MK_New_' . $this->InstanceID;
+        IPS_SemaphoreEnter($sem, 3000);
+        try {
+            $list = $this->ReadNew();
+            $fn($list);
+            $this->WriteAttributeString('NewDevices', json_encode(array_slice(array_values($list), 0, self::NEW_MAX)));
+        } finally {
+            IPS_SemaphoreLeave($sem);
+        }
+        $this->Push();
+    }
+
+    /** sichtbare neue Geräte für die Kachel, mit Symcon-Instanz (falls schon angelegt) */
+    private function NewForTile(): array
+    {
+        $topics = [];
+        foreach ($this->DeviceInstances() as $id) {
+            $topics[IPS_GetProperty($id, 'MQTTTopic')] = $id;
+        }
+        $r = [];
+        foreach ($this->ReadNew() as $e) {
+            if (!empty($e['hidden']) || time() - (int) $e['joined'] > self::NEW_SHOW_DAYS * 86400) {
+                continue;
+            }
+            $e['instance'] = $topics[$e['name']] ?? 0;
+            unset($e['hidden']);
+            $r[] = $e;
+        }
+        return $r;
     }
 
     /* ---------- Koordinator (SMLIGHT, z. B. SLZB-06) ---------- */
@@ -263,7 +532,9 @@ class Z2MBridgeKachel extends IPSModuleStrict
             'join'      => false,
             'joinEnd'   => 0,
             'devices'   => $this->DeviceCount($bid),
-            'coord'     => null
+            'coord'     => null,
+            'newDevices'=> $this->NewForTile(),
+            'listening' => IPS_GetInstance($this->InstanceID)['ConnectionID'] === IPS_GetInstance($bid)['ConnectionID']
         ];
         if ($this->CoordHost() !== '') {
             $c = json_decode($this->ReadAttributeString('Coordinator'), true) ?: [];

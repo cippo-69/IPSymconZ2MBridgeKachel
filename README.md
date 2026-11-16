@@ -9,6 +9,12 @@ aus dem Modul [Schnittcher/IPS-Zigbee2MQTT](https://github.com/Schnittcher/IPS-Z
 - Zigbee2MQTT-Version, Netzwerkkanal und Anzahl der Zigbee2MQTT-Geräteinstanzen am selben MQTT-Server
 - Hinweise: Bridge-Instanz gestört, Neustart erforderlich, Symcon-Erweiterung fehlt oder ist veraltet
 - **Anlernen** (permit_join) ein/aus mit Countdown
+- **Neue Geräte** (ab 0.3): erscheinen direkt beim Beitritt (Ereignisse aus `zigbee2mqtt/bridge/event`: device_joined,
+  device_interview, device_leave) mit Interview-Status, Hersteller, Modell und ob schon eine Symcon-Instanz existiert.
+  Sichtbar 7 Tage oder bis „Ausblenden“, auch in der kleinen Kachel.
+- **Umbenennen** neuer Geräte über `Z2M_RenameDevice` der Bridge. Danach stellt die Kachel Symcon-Geräteinstanzen mit dem
+  alten Topic auf den neuen Namen um (Eigenschaft MQTTTopic, Instanzname nur, wenn er gleich dem alten Namen war). Das gilt auch
+  für Umbenennungen, die im Zigbee2MQTT-Frontend gemacht werden.
 - **Protokollierung**: Fehler / Warnung / Info / Debug
 - **Neustart** von Zigbee2MQTT mit Rückfrage (verfällt nach 8 s)
 - Versionen: Zigbee2MQTT, Zigbee Herdsman, Herdsman Converters, Symcon-Erweiterung
@@ -24,6 +30,7 @@ Geschaltet wird über die Aktionen der Bridge-Variablen (`RequestAction`), also 
 
 1. Modulverwaltung → Repository dieser Bibliothek hinzufügen.
 2. Instanz „Z2M Bridge Kachel“ anlegen, die Zigbee2MQTT-Bridge auswählen und in der Kachel-Visualisierung platzieren.
+3. Ab 0.3: Die Instanz mit demselben MQTT-Server verbinden wie die Bridge (Schaltfläche „Gateway ändern“), sonst fehlen die neuen Geräte.
 
 ## Eigenschaften
 

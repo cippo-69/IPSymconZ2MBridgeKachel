@@ -76,6 +76,22 @@ button { font: inherit; color: var(--zb-fg); }
 #zb .btn.plain { color: var(--zb-fg); }
 .btn:disabled { opacity: .45; cursor: default; }
 .acts { display: flex; gap: 8px; }
+/* Neue Geräte */
+.nd { display: flex; flex-direction: column; gap: 6px; }
+.nd + .nd { border-top: 1px solid var(--zb-line); padding-top: 10px; }
+.nd .t b { word-break: break-all; }
+.nd .meta { font-size: 11px; }
+#zb .nd .meta, #zb .nd .err { color: var(--zb-muted); }
+#zb .nd .err { color: var(--zb-bad); font-size: 12px; }
+.ren { display: flex; gap: 8px; align-items: center; }
+.ren input { flex: 1; min-width: 0; font: inherit; font-size: 16px; min-height: 42px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--zb-line); background: var(--zb-bg2); color: var(--zb-fg); }
+.ren input:focus { outline: none; border-color: var(--zb-accent); }
+.btn2 { min-height: 36px; border: 1px solid var(--zb-accent); background: none; border-radius: 999px; padding: 4px 14px; cursor: pointer; font-weight: 600; font-size: 13px; touch-action: manipulation; }
+#zb .btn2 { color: var(--zb-accent); }
+.btn2.solid { background: var(--zb-accent); }
+#zb .btn2.solid { color: #fff; }
+.lnk { border: 0; background: none; cursor: pointer; font-size: 12px; padding: 6px 4px; }
+#zb .lnk { color: var(--zb-muted); }
 .chip { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 5px 12px; border-radius: 999px; background: var(--zb-bg2); flex: none; white-space: nowrap; }
 .chip .dot { width: 9px; height: 9px; }
 .card .row + .row { border-top: 1px solid var(--zb-line); padding-top: 10px; }
@@ -100,13 +116,15 @@ body.compact .card { padding: 8px 12px; gap: 6px; }
 <div id="zb"></div>
 <script>
 // confirm: '' oder welcher Neustart gerade bestätigt werden soll ('z2m' / 'coord')
-var ZB = { s: null, confirm: '', confirmT: 0, sentLevel: null, offset: 0 };
+// edit: IEEE des Geräts, das gerade umbenannt wird; busy: Eingabe aktiv, nicht neu zeichnen
+var ZB = { s: null, confirm: '', confirmT: 0, sentLevel: null, offset: 0, edit: null, editVal: '', busy: false, pending: false };
 var LEVELS = [['error', 'Fehler'], ['warning', 'Warnung'], ['info', 'Info'], ['debug', 'Debug']];
 
 function handleMessage(data) {
   try { ZB.s = typeof data === 'string' ? JSON.parse(data) : data; } catch (e) { return; }
   if (ZB.s && ZB.s.now) ZB.offset = ZB.s.now * 1000 - Date.now();   // Uhrzeit des Servers für den Countdown
   if (ZB.s && ZB.sentLevel === ZB.s.logLevel) ZB.sentLevel = null;
+  if (ZB.busy) { ZB.pending = true; return; }   // während der Eingabe nicht neu zeichnen
   render();
 }
 function send(ident, value) { if (typeof requestAction === 'function') requestAction(ident, value); }
@@ -137,6 +155,42 @@ function restartRow(key, title, info, warn, busy) {
   var h = '<div class="row"><div class="t"><b>' + title + '</b><span class="sub">' + (ZB.confirm === key ? warn : info) + '</span></div>';
   if (ZB.confirm === key) h += '<div class="acts"><button class="btn plain" data-no="1">Abbrechen</button><button class="btn solid" data-yes="' + key + '">Neu starten</button></div>';
   else h += '<button class="btn" data-rs="' + key + '"' + (busy ? ' disabled' : '') + '>Neustart</button>';
+  return h + '</div>';
+}
+
+/* Neue Geräte: Status aus den Ereignissen von Zigbee2MQTT */
+function ndStatus(d) {
+  if (d.renameTo && now() - d.renameAt < 20) return ['busy', 'wird umbenannt …'];
+  switch (d.status) {
+    case 'joined': return ['busy', 'tritt bei …'];
+    case 'interview': return ['busy', 'Interview läuft …'];
+    case 'ok': return d.supported === false ? ['bad', 'nicht unterstützt'] : ['ok', 'bereit'];
+    case 'failed': return ['bad', 'Interview fehlgeschlagen'];
+    case 'left': return ['bad', 'hat das Netz verlassen'];
+  }
+  return ['', d.status || ''];
+}
+function isIeee(n) { return /^0x[0-9a-f]{16}$/i.test(n); }
+function newCard(s) {
+  var h = '<div class="card"><span class="lbl">Neue Geräte</span>';
+  s.newDevices.forEach(function (d) {
+    var st = ndStatus(d), info = [d.vendor, d.model].filter(Boolean).join(' ') + (d.desc ? ' · ' + d.desc : '');
+    h += '<div class="nd"><div class="row"><div class="t"><b>' + esc(d.name) + '</b>' + (info ? '<span class="sub">' + esc(info) + '</span>' : '') + '</div>'
+      + '<span class="chip"><span class="dot ' + st[0] + '"></span>' + st[1] + '</span></div>'
+      + '<div class="meta">angelernt ' + since(d.joined).replace('seit ', '') + (isIeee(d.name) ? '' : ' · ' + esc(d.ieee))
+      + (d.instance ? ' · Symcon-Instanz ' + d.instance : ' · noch keine Symcon-Instanz (Konfigurator)') + '</div>';
+    if (d.renameError) h += '<div class="err">' + esc(d.renameError) + '</div>';
+    if (ZB.edit === d.ieee) {
+      h += '<div class="ren"><input id="rn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(ZB.editVal) + '" placeholder="z. B. W50-BUERO-TF" aria-label="Neuer Name">'
+        + '<button class="btn2 solid" data-save="' + esc(d.ieee) + '">Speichern</button></div>'
+        + '<div class="row"><span class="meta">Gebäude zuerst, z. B. W50-KUECHE-SD. Die Symcon-Instanz zieht mit.</span><button class="lnk" data-cancel="1">Abbrechen</button></div>';
+    } else if (d.status !== 'left') {
+      h += '<div class="row"><button class="btn2" data-ren="' + esc(d.ieee) + '">Umbenennen</button><button class="lnk" data-dis="' + esc(d.ieee) + '">Ausblenden</button></div>';
+    } else {
+      h += '<div class="row"><span></span><button class="lnk" data-dis="' + esc(d.ieee) + '">Ausblenden</button></div>';
+    }
+    h += '</div>';
+  });
   return h + '</div>';
 }
 
@@ -214,7 +268,12 @@ function render() {
     var total = Math.max(1, s.joinEnd - (s.joinStart || s.joinEnd - 254));
     h += '<div class="prog"><i id="jp" style="width:' + Math.max(0, Math.min(100, left / total * 100)) + '%"></i></div>';
   }
+  var nd = s.newDevices || [];
+  if (s.join && !nd.length) h += '<div class="hint">' + (s.listening === false ? 'Kachel ist nicht mit dem MQTT-Server verbunden: neue Geräte werden nicht angezeigt.' : 'Neue Geräte erscheinen hier, sobald sie beitreten.') + '</div>';
   h += '</div>';
+
+  // neu angelernte Geräte (immer sichtbar, auch in der kleinen Kachel)
+  if (nd.length) h += newCard(s);
 
   // Protokollstufe
   if (s.canLog) {
@@ -256,6 +315,42 @@ function bind() {
       send('LogLevel', b.dataset.l);
     };
   });
+  // Umbenennen
+  document.querySelectorAll('[data-ren]').forEach(function (b) {
+    b.onclick = function () {
+      var d = (s.newDevices || []).filter(function (x) { return x.ieee === b.dataset.ren; })[0];
+      ZB.edit = b.dataset.ren; ZB.editVal = d && !isIeee(d.name) ? d.name : 'W50-';
+      render();
+      var i = document.getElementById('rn');
+      if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
+    };
+  });
+  var rn = document.getElementById('rn');
+  if (rn) {
+    rn.addEventListener('focus', function () { ZB.busy = true; });
+    rn.addEventListener('blur', function () { setTimeout(function () { ZB.busy = false; if (ZB.pending) { ZB.pending = false; render(); } }, 200); });
+    rn.addEventListener('input', function () { ZB.editVal = rn.value; });
+    rn.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { var sv = document.querySelector('[data-save]'); if (sv) sv.click(); }
+      if (e.key === 'Escape') { ZB.edit = null; ZB.busy = false; render(); }
+    });
+  }
+  document.querySelectorAll('[data-save]').forEach(function (b) {
+    b.onclick = function () {
+      var to = (document.getElementById('rn') || {}).value || '';
+      to = to.trim();
+      if (!to) return;
+      send('RenameDevice', JSON.stringify({ ieee: b.dataset.save, to: to }));
+      ZB.edit = null; ZB.busy = false; ZB.pending = false;
+      render();
+    };
+  });
+  document.querySelectorAll('[data-cancel]').forEach(function (b) {
+    b.onclick = function () { ZB.edit = null; ZB.busy = false; render(); };
+  });
+  document.querySelectorAll('[data-dis]').forEach(function (b) {
+    b.onclick = function () { send('DismissDevice', b.dataset.dis); };
+  });
   document.querySelectorAll('[data-rs]').forEach(function (b) {
     b.onclick = function () {
       if (b.disabled) return;
@@ -289,8 +384,8 @@ setInterval(function () {
 // Neustart-Anzeige läuft nach 3 min ohne Rückmeldung von selbst aus
 setInterval(function () {
   var s = ZB.s;
-  if (!s || s.error || ZB.confirm) return;
+  if (!s || s.error || ZB.confirm || ZB.busy || ZB.edit) return;
   if ((s.restartAt && now() - s.restartAt < 200) || (s.coord && s.coord.restartAt && now() - s.coord.restartAt < 200)) render();
 }, 5000);
-window.addEventListener('resize', function () { if (ZB.s) render(); });
+window.addEventListener('resize', function () { if (ZB.s && !ZB.busy) render(); });
 </script>
