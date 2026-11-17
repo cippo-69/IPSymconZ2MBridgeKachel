@@ -129,8 +129,17 @@ body.compact .card { padding: 8px 12px; gap: 6px; }
 var ZB = { s: null, confirm: '', confirmT: 0, sentLevel: null, offset: 0, edit: null, editVal: '', busy: false, pending: false };
 var LEVELS = [['error', 'Fehler'], ['warning', 'Warnung'], ['info', 'Info'], ['debug', 'Debug']];
 
+/* Farben aus „Visu Design“ live übernehmen (Element #w5d), auch wenn die Visu die Kachel zwischengespeichert hat */
+function design(css) {
+  if (typeof css !== 'string') return;
+  var st = document.getElementById('w5d');
+  if (!st) { st = document.createElement('style'); st.id = 'w5d'; (document.head || document.body).appendChild(st); }
+  if (st.textContent !== css) st.textContent = css;
+}
+
 function handleMessage(data) {
   try { ZB.s = typeof data === 'string' ? JSON.parse(data) : data; } catch (e) { return; }
+  design(ZB.s.design);
   if (ZB.s && ZB.s.now) ZB.offset = ZB.s.now * 1000 - Date.now();   // Uhrzeit des Servers für den Countdown
   if (ZB.s && ZB.sentLevel === ZB.s.logLevel) ZB.sentLevel = null;
   if (ZB.busy) { ZB.pending = true; return; }   // während der Eingabe nicht neu zeichnen

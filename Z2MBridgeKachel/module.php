@@ -51,6 +51,7 @@ class Z2MBridgeKachel extends IPSModuleStrict
     public function ApplyChanges(): void
     {
         parent::ApplyChanges();
+        $this->WatchDesign();
 
         foreach ((array) json_decode($this->ReadAttributeString('Watched'), true) as $w) {
             $this->UnregisterMessage((int) $w[0], (int) $w[1]);
@@ -96,19 +97,40 @@ class Z2MBridgeKachel extends IPSModuleStrict
         $this->Push();
     }
 
-    /** Farben aus dem Modul „Visu Design“ (W5D); ohne Instanz gelten die Vorgaben im module.html. */
+    /**
+     * Farben aus dem Modul „Visu Design“ (W5D); ohne Instanz gelten die Vorgaben im module.html.
+     * Das CSS steht im Element #w5d und kommt zusätzlich mit jedem Zustand mit (Feld design), damit ein
+     * Theme-Wechsel auch in zwischengespeicherten Kacheln ohne Neuladen ankommt.
+     */
     private function DesignStyle(): string
     {
+        return '<style id="w5d">' . $this->DesignCSS() . '</style>';
+    }
+
+    private function DesignID(): int
+    {
         $guid = '{018EEC85-8FFC-4E1F-A966-702C4BBDC2E8}';
-        if (!IPS_ModuleExists($guid) || !function_exists('W5D_GetCSS')) {
-            return '';
+        if (!IPS_ModuleExists($guid)) {
+            return 0;
         }
         $ids = IPS_GetInstanceListByModuleID($guid);
-        if (count($ids) === 0) {
-            return '';
-        }
         sort($ids);
-        return '<style>' . W5D_GetCSS($ids[0]) . '</style>';
+        return $ids[0] ?? 0;
+    }
+
+    private function DesignCSS(): string
+    {
+        $id = $this->DesignID();
+        return $id > 0 && function_exists('W5D_GetCSS') ? W5D_GetCSS($id) : '';
+    }
+
+    /** Theme-Wechsel in „Visu Design“ melden lassen (IM_CHANGESETTINGS → Zustand mit neuem Design-CSS senden). */
+    private function WatchDesign(): void
+    {
+        $id = $this->DesignID();
+        if ($id > 0) {
+            $this->RegisterMessage($id, IM_CHANGESETTINGS);
+        }
     }
 
     public function GetVisualizationTile(): string
@@ -508,7 +530,7 @@ class Z2MBridgeKachel extends IPSModuleStrict
 
     private function Push(): void
     {
-        $this->UpdateVisualizationValue(json_encode($this->BuildState()));
+        $this->UpdateVisualizationValue(json_encode(['design' => $this->DesignCSS()] + $this->BuildState()));
     }
 
     private function BuildState(): array
