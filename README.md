@@ -38,10 +38,13 @@ Geschaltet wird über die Aktionen der Bridge-Variablen (`RequestAction`), also 
 |---|---|
 | Zigbee2MQTT Bridge | Instanz des Moduls „Zigbee2MQTT Bridge“ |
 | Anlernzeit | Dauer, die die Bridge beim Anlernen sendet (Standard 254 s); nur für den Countdown. Gibt die Bridge eine Variable `permit_join_timeout` aus, gilt deren Wert. |
-| Akzentfarbe | Farbe der Schalter und der Auswahl |
 | Koordinator | optional: IP oder Hostname eines SMLIGHT-Koordinators; leer = kein Koordinator-Abschnitt |
 | Abfrage alle | Abfrageintervall des Koordinators (Standard 60 s; nach einem Neustart alle 10 s, bis er wieder antwortet) |
 
 ## Voraussetzungen
 
 IP-Symcon ab 8.0, Modul IPS-Zigbee2MQTT mit Bridge-Instanz.
+
+## Farben
+
+Die Kachel hat keine eigenen Farbeinstellungen. Die Farben kommen aus dem Modul [Visu Design](https://github.com/cippo-69/IPSymconVisuDesign) (CSS-Variablen `--w5-*`, heller Modus und Dark Mode). Ohne Design-Instanz gilt das Farbkonzept W5x.

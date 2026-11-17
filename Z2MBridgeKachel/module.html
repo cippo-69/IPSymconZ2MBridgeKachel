@@ -1,25 +1,28 @@
 <style>
 :root {
-  --zb-accent: #2F6B4F;    /* Tannengrün (Farbkonzept W5x) */
-  --zb-ok: #2F6B4F;      /* Farbkonzept W5x: Tannengrün */
-  --zb-warn: #9A5200;    /* Harz */
-  --zb-bad: #C8321F;     /* Signalrot */
-  --zb-on: #fff;         /* Schrift auf Akzent-/Alarmfläche */
-  --zb-fg: #1E2224;      /* Anthrazit */
   --zb-bg: rgba(0,0,0,.045);
   --zb-bg2: rgba(0,0,0,.075);
   --zb-line: rgba(0,0,0,.12);
   --zb-muted: rgba(0,0,0,.52);
   --zb-top: 58px;          /* Platz für Titel und Vergrößern-Symbol der Symcon-Kachel */
 }
+/* Farben aus dem Modul „Visu Design“ (--w5-*); die Werte nach dem Komma gelten ohne Design-Instanz */
+body {
+  --zb-accent: var(--w5-accent, #2F6B4F);
+  --zb-ok: var(--w5-accent, #2F6B4F);
+  --zb-warn: var(--w5-warn, #9A5200);
+  --zb-bad: var(--w5-alarm, #C8321F);
+  --zb-on: var(--w5-on, #fff);
+  --zb-fg: var(--w5-fg, #1E2224);
+}
 /* Dark Mode: Bedienflächen deutlich heller als die Kachel */
 body.dark {
-  --zb-accent: #74B892;
-  --zb-ok: #74B892;
-  --zb-warn: #EE9A45;
-  --zb-bad: #FF5A47;
-  --zb-on: #1E2224;
-  --zb-fg: #F1F0EB;
+  --zb-accent: var(--w5-accent, #74B892);
+  --zb-ok: var(--w5-accent, #74B892);
+  --zb-warn: var(--w5-warn, #EE9A45);
+  --zb-bad: var(--w5-alarm, #FF5A47);
+  --zb-on: var(--w5-on, #1E2224);
+  --zb-fg: var(--w5-fg, #F1F0EB);
   --zb-bg: rgba(255,255,255,.10);
   --zb-bg2: rgba(255,255,255,.15);
   --zb-line: rgba(255,255,255,.16);

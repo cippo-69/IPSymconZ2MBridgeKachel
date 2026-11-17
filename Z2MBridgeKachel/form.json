@@ -2,7 +2,7 @@
     "elements": [
         { "type": "SelectInstance", "name": "BridgeID", "caption": "Zigbee2MQTT Bridge", "validModules": ["{00160D82-9E2F-D1BD-6D0B-952F945332C5}"], "width": "600px" },
         { "type": "NumberSpinner", "name": "PermitJoinTime", "caption": "Anlernzeit der Bridge (nur Anzeige des Countdowns)", "suffix": " s", "minimum": 0, "maximum": 600 },
-        { "type": "SelectColor", "name": "AccentColor", "caption": "Akzentfarbe" },
+        { "type": "Label", "caption": "Farben: zentral im Modul „Visu Design“ (Farbkonzept W5x)." },
         { "type": "Label", "caption": "Optional: SMLIGHT-Koordinator (z. B. SLZB-06) für Status und Neustart; leer = kein Koordinator-Abschnitt." },
         { "type": "RowLayout", "items": [
             { "type": "ValidationTextBox", "name": "CoordinatorHost", "caption": "Koordinator (IP oder Hostname)" },
