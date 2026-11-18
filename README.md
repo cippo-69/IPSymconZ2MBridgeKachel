@@ -47,4 +47,4 @@ IP-Symcon ab 8.0, Modul IPS-Zigbee2MQTT mit Bridge-Instanz.
 
 ## Farben
 
-Die Kachel hat keine eigenen Farbeinstellungen. Die Farben kommen aus dem Modul [Visu Design](https://github.com/cippo-69/IPSymconVisuDesign) (CSS-Variablen `--w5-*`, heller Modus und Dark Mode). Ohne Design-Instanz gilt das Farbkonzept W5x. Ein Theme-Wechsel kommt ohne Neuladen an: Die Kachel abonniert die Einstellungen der Design-Instanz und schickt das Design-CSS mit jedem Zustand mit (auch an zwischengespeicherte Kacheln).
+Die Kachel hat kein eigenes Layout-CSS und keine eigenen Farbeinstellungen. Farben, Layout und Hell/Dunkel-Erkennung kommen aus dem Modul [Visu Design](https://github.com/cippo-69/IPSymconVisuDesign) ab Version 1.5 (`W5D_GetCSS`, `W5D_GetTileCSS`, `W5D_GetTileJS`); im module.html steht nur das Sonderelement „neues Gerät“ mit Farben aus Visu Design. Ohne Design-Instanz erscheint die Kachel ungestaltet. Ein Theme-Wechsel kommt ohne Neuladen an: Die Kachel abonniert die Einstellungen der Design-Instanz und schickt das Design-CSS mit jedem Zustand mit (auch an zwischengespeicherte Kacheln).
