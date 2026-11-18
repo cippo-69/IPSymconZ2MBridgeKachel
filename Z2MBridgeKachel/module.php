@@ -98,7 +98,7 @@ class Z2MBridgeKachel extends IPSModuleStrict
     }
 
     /**
-     * Farben aus dem Modul „Visu Design“ (W5D); ohne Instanz gelten die Vorgaben im module.html.
+     * Farben und Layout aus dem Modul „Visu Design“ (W5D, ab 1.5); das module.html hat kein eigenes Layout-CSS.
      * Das CSS steht im Element #w5d und kommt zusätzlich mit jedem Zustand mit (Feld design), damit ein
      * Theme-Wechsel auch in zwischengespeicherten Kacheln ohne Neuladen ankommt.
      */
@@ -118,10 +118,21 @@ class Z2MBridgeKachel extends IPSModuleStrict
         return $ids[0] ?? 0;
     }
 
+    /** Farben und Kachel-Bausteine aus Visu Design (ab 1.5); die Kachel bringt kein eigenes Layout-CSS mit */
     private function DesignCSS(): string
     {
         $id = $this->DesignID();
-        return $id > 0 && function_exists('W5D_GetCSS') ? W5D_GetCSS($id) : '';
+        if ($id <= 0 || !function_exists('W5D_GetCSS')) {
+            return '';
+        }
+        return W5D_GetCSS($id) . (function_exists('W5D_GetTileCSS') ? W5D_GetTileCSS($id) : '');
+    }
+
+    /** Hell/Dunkel-Erkennung (w5tTheme) aus Visu Design */
+    private function DesignScript(): string
+    {
+        $id = $this->DesignID();
+        return $id > 0 && function_exists('W5D_GetTileJS') ? '<script>' . W5D_GetTileJS($id) . '</script>' : '';
     }
 
     /** Theme-Wechsel in „Visu Design“ melden lassen (IM_CHANGESETTINGS → Zustand mit neuem Design-CSS senden). */
@@ -136,7 +147,7 @@ class Z2MBridgeKachel extends IPSModuleStrict
     public function GetVisualizationTile(): string
     {
         $initial = '<script>handleMessage(' . json_encode(json_encode($this->BuildState())) . ');</script>';
-        return $this->DesignStyle() . file_get_contents(__DIR__ . '/module.html') . $initial;
+        return $this->DesignStyle() . file_get_contents(__DIR__ . '/module.html') . $this->DesignScript() . $initial;
     }
 
     public function RequestAction(string $Ident, mixed $Value): void
