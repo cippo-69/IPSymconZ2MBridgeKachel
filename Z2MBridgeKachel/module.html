@@ -1,128 +1,11 @@
+<!-- Layout und Farben kommen aus „Visu Design“ (W5D_GetCSS + W5D_GetTileCSS, Bausteine laut README).
+     Hier nur das Sonderelement „neues Gerät“ (Gruppe aus Zeilen), ausschließlich mit Farben aus Visu Design. -->
 <style>
-:root {
-  --zb-bg: rgba(0,0,0,.045);
-  --zb-bg2: rgba(0,0,0,.075);
-  --zb-line: rgba(0,0,0,.12);
-  --zb-muted: rgba(0,0,0,.52);
-  --zb-top: 58px;          /* Platz für Titel und Vergrößern-Symbol der Symcon-Kachel */
-}
-/* Farben aus dem Modul „Visu Design“ (--w5-*); die Werte nach dem Komma gelten ohne Design-Instanz */
-body {
-  --zb-accent: var(--w5-accent, #2F6B4F);
-  --zb-ok: var(--w5-accent, #2F6B4F);
-  --zb-warn: var(--w5-warn, #9A5200);
-  --zb-bad: var(--w5-alarm, #C8321F);
-  --zb-on: var(--w5-on, #fff);
-  --zb-fg: var(--w5-fg, #1E2224);
-}
-/* Dark Mode: Bedienflächen deutlich heller als die Kachel */
-body.dark {
-  --zb-accent: var(--w5-accent, #74B892);
-  --zb-ok: var(--w5-accent, #74B892);
-  --zb-warn: var(--w5-warn, #EE9A45);
-  --zb-bad: var(--w5-alarm, #FF5A47);
-  --zb-on: var(--w5-on, #1E2224);
-  --zb-fg: var(--w5-fg, #F1F0EB);
-  --zb-bg: rgba(255,255,255,.10);
-  --zb-bg2: rgba(255,255,255,.15);
-  --zb-line: rgba(255,255,255,.16);
-  --zb-muted: rgba(255,255,255,.6);
-}
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
-body { font-family: 'Poppins', 'Work Sans', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif; font-size: 14px; line-height: 1.35; }
-button { font: inherit; color: var(--zb-fg); }
-#zb, #zb div, #zb span, #zb b { color: var(--zb-fg); }
-#zb .lbl, #zb .sub, #zb .facts, #zb .facts span, #zb .kv span, #zb .hint { color: var(--zb-muted); }
-#zb .seg button.on, #zb .btn.solid, #zb .badge { color: var(--zb-on); }
-#zb .badge.warn { color: var(--zb-on); }
-#zb { position: absolute; inset: 0; padding: var(--zb-top) 16px 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
-.lbl { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; }
-
-/* Kopf: Status links, Fakten rechts */
-.head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.st { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.st .v { display: flex; align-items: center; gap: 10px; font-size: 26px; font-weight: 500; line-height: 1.1; }
-.dot { width: 12px; height: 12px; border-radius: 50%; flex: none; background: var(--zb-muted); }
-.dot.ok { background: var(--zb-ok); box-shadow: 0 0 0 4px rgba(116,184,146,.25); }
-.dot.bad { background: var(--zb-bad); box-shadow: 0 0 0 4px rgba(255,90,71,.25); }
-.dot.busy { background: var(--zb-warn); animation: pulse 1.2s infinite; }
-@keyframes pulse { 50% { opacity: .35; } }
-.sub { font-size: 12px; }
-.facts { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 12px; text-align: right; }
-.facts b { font-weight: 600; }
-.badges { display: flex; flex-wrap: wrap; gap: 6px; }
-.badge { font-size: 11px; font-weight: 600; letter-spacing: .03em; padding: 3px 9px; border-radius: 999px; background: var(--zb-bad); }
-.badge.warn { background: var(--zb-warn); }
-
-/* Abschnitte */
-.card { background: var(--zb-bg); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
-.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 32px; }
-.row .t { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.row .t b { font-weight: 500; }
-
-/* Schalter */
-.tg { position: relative; width: 56px; height: 32px; border-radius: 16px; background: var(--zb-line); border: 0; cursor: pointer; padding: 0; flex: none; touch-action: manipulation; }
-.tg::after { content: ""; position: absolute; top: 3px; left: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: left .15s; }
-.tg.on { background: var(--zb-accent); }
-.tg.on::after { left: 27px; }
-.tg:disabled { opacity: .45; cursor: default; }
-.prog { height: 6px; border-radius: 3px; background: var(--zb-line); overflow: hidden; }
-.prog i { display: block; height: 100%; background: var(--zb-accent); transition: width 1s linear; }
-
-/* Protokollstufe */
-.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; background: var(--zb-bg2); border-radius: 12px; padding: 4px; }
-.seg button { border: 0; background: none; border-radius: 9px; min-height: 38px; cursor: pointer; font-size: 13px; padding: 4px 2px; touch-action: manipulation; }
-.seg button.on { background: var(--zb-accent); font-weight: 600; }
-.seg button:disabled { cursor: default; }
-
-/* Neustart */
-.btn { min-height: 40px; border: 1px solid var(--zb-bad); background: none; color: var(--zb-bad); border-radius: 999px; padding: 6px 16px; cursor: pointer; font-weight: 600; font-size: 13px; touch-action: manipulation; flex: none; }
-#zb .btn { color: var(--zb-bad); }
-.btn.solid { background: var(--zb-bad); }
-#zb .btn.solid { color: var(--zb-on); }
-.btn.plain { border-color: var(--zb-line); }
-#zb .btn.plain { color: var(--zb-fg); }
-.btn:disabled { opacity: .45; cursor: default; }
-.acts { display: flex; gap: 8px; }
-/* Neue Geräte */
-.nd { display: flex; flex-direction: column; gap: 6px; }
-.nd + .nd { border-top: 1px solid var(--zb-line); padding-top: 10px; }
-.nd .t b { word-break: break-all; }
-.nd .meta { font-size: 11px; }
-#zb .nd .meta, #zb .nd .err { color: var(--zb-muted); }
-#zb .nd .err { color: var(--zb-bad); font-size: 12px; }
-.ren { display: flex; gap: 8px; align-items: center; }
-.ren input { flex: 1; min-width: 0; font: inherit; font-size: 16px; min-height: 42px; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--zb-line); background: var(--zb-bg2); color: var(--zb-fg); }
-.ren input:focus { outline: none; border-color: var(--zb-accent); }
-.btn2 { min-height: 36px; border: 1px solid var(--zb-accent); background: none; border-radius: 999px; padding: 4px 14px; cursor: pointer; font-weight: 600; font-size: 13px; touch-action: manipulation; }
-#zb .btn2 { color: var(--zb-accent); }
-.btn2.solid { background: var(--zb-accent); }
-#zb .btn2.solid { color: var(--zb-on); }
-.lnk { border: 0; background: none; cursor: pointer; font-size: 12px; padding: 6px 4px; }
-#zb .lnk { color: var(--zb-muted); }
-.chip { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 5px 12px; border-radius: 999px; background: var(--zb-bg2); flex: none; white-space: nowrap; }
-.chip .dot { width: 9px; height: 9px; }
-.card .row + .row { border-top: 1px solid var(--zb-line); padding-top: 10px; }
-.card .kv + .row { border-top: 1px solid var(--zb-line); padding-top: 10px; }
-
-/* Details */
-.kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; }
-.kv b { font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
-.hint { font-size: 12px; }
-
-@media (max-width: 420px) {
-  #zb { padding-left: 12px; padding-right: 12px; }
-  .st .v { font-size: 22px; }
-  .card { padding: 12px; }
-}
-/* kleine Kachel: Status und Anlernen */
-body.compact #zb { gap: 8px; padding-bottom: 8px; }
-body.compact .more { display: none; }
-body.compact .st .v { font-size: 20px; }
-body.compact .card { padding: 8px 12px; gap: 6px; }
+#zb .nd { display: flex; flex-direction: column; gap: 6px; }
+#zb .nd + .nd { border-top: 1px solid var(--w5t-line); padding-top: 10px; }
+#zb .nd .t b { word-break: break-all; }
 </style>
-<div id="zb"></div>
+<div id="zb" class="w5t fill"></div>
 <script>
 // confirm: '' oder welcher Neustart gerade bestätigt werden soll ('z2m' / 'coord')
 // edit: IEEE des Geräts, das gerade umbenannt wird; busy: Eingabe aktiv, nicht neu zeichnen
@@ -171,8 +54,8 @@ function coordRestarting(c) {
 /* Zeile „neu starten“ mit Rückfrage; key = 'z2m' oder 'coord' */
 function restartRow(key, title, info, warn, busy) {
   var h = '<div class="row"><div class="t"><b>' + title + '</b><span class="sub">' + (ZB.confirm === key ? warn : info) + '</span></div>';
-  if (ZB.confirm === key) h += '<div class="acts"><button class="btn plain" data-no="1">Abbrechen</button><button class="btn solid" data-yes="' + key + '">Neu starten</button></div>';
-  else h += '<button class="btn" data-rs="' + key + '"' + (busy ? ' disabled' : '') + '>Neustart</button>';
+  if (ZB.confirm === key) h += '<div class="acts"><button class="btn" data-no="1">Abbrechen</button><button class="btn bad solid" data-yes="' + key + '">Neu starten</button></div>';
+  else h += '<button class="btn bad" data-rs="' + key + '"' + (busy ? ' disabled' : '') + '>Neustart</button>';
   return h + '</div>';
 }
 
@@ -194,16 +77,16 @@ function newCard(s) {
   s.newDevices.forEach(function (d) {
     var st = ndStatus(d), info = [d.vendor, d.model].filter(Boolean).join(' ') + (d.desc ? ' · ' + d.desc : '');
     h += '<div class="nd"><div class="row"><div class="t"><b>' + esc(d.name) + '</b>' + (info ? '<span class="sub">' + esc(info) + '</span>' : '') + '</div>'
-      + '<span class="chip"><span class="dot ' + st[0] + '"></span>' + st[1] + '</span></div>'
+      + '<span class="chip"><span class="dot sm ' + st[0] + '"></span>' + st[1] + '</span></div>'
       + '<div class="meta">angelernt ' + since(d.joined).replace('seit ', '') + (isIeee(d.name) ? '' : ' · ' + esc(d.ieee))
       + (d.instance ? ' · Symcon-Instanz ' + d.instance : ' · noch keine Symcon-Instanz (Konfigurator)') + '</div>';
-    if (d.renameError) h += '<div class="err">' + esc(d.renameError) + '</div>';
+    if (d.renameError) h += '<div class="hint bad">' + esc(d.renameError) + '</div>';
     if (ZB.edit === d.ieee) {
-      h += '<div class="ren"><input id="rn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(ZB.editVal) + '" placeholder="z. B. W50-BUERO-TF" aria-label="Neuer Name">'
-        + '<button class="btn2 solid" data-save="' + esc(d.ieee) + '">Speichern</button></div>'
+      h += '<div class="inrow"><input id="rn" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" value="' + esc(ZB.editVal) + '" placeholder="z. B. W50-BUERO-TF" aria-label="Neuer Name">'
+        + '<button class="btn acc solid" data-save="' + esc(d.ieee) + '">Speichern</button></div>'
         + '<div class="row"><span class="meta">Gebäude zuerst, z. B. W50-KUECHE-SD. Die Symcon-Instanz zieht mit.</span><button class="lnk" data-cancel="1">Abbrechen</button></div>';
     } else if (d.status !== 'left') {
-      h += '<div class="row"><button class="btn2" data-ren="' + esc(d.ieee) + '">Umbenennen</button><button class="lnk" data-dis="' + esc(d.ieee) + '">Ausblenden</button></div>';
+      h += '<div class="row"><button class="btn acc" data-ren="' + esc(d.ieee) + '">Umbenennen</button><button class="lnk" data-dis="' + esc(d.ieee) + '">Ausblenden</button></div>';
     } else {
       h += '<div class="row"><span></span><button class="lnk" data-dis="' + esc(d.ieee) + '">Ausblenden</button></div>';
     }
@@ -218,7 +101,7 @@ function coordCard(c) {
   var mode = c.mode === 0 ? 'LAN' : c.mode === 1 ? 'WLAN' : c.mode === 2 ? 'USB' : '';
   var title = [c.model || 'Koordinator', c.zbHw, mode].filter(Boolean).join(' · ');
   var h = '<div class="card more"><div class="row"><div class="t"><span class="lbl">Koordinator</span><b>' + esc(title) + '</b></div>'
-    + '<span class="chip"><span class="dot ' + cls + '"></span>' + st + '</span></div>';
+    + '<span class="chip"><span class="dot sm ' + cls + '"></span>' + st + '</span></div>';
   if (c.ok) {
     h += '<div class="kv">'
       + '<span>Firmware</span><b>' + esc(c.fw || '–') + '</b>'
@@ -235,13 +118,9 @@ function coordCard(c) {
   return h + '</div>';
 }
 
-/* Hell/Dunkel aus der Textfarbe der Kachel-Visu (helle Schrift = Dark Mode), sonst Systemeinstellung */
-function theme() {
-  var b = document.body, m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(b).color || ''), dark;
-  if (m) dark = (0.2126 * m[1] + 0.7152 * m[2] + 0.0722 * m[3]) / 255 > 0.5;
-  else dark = !!(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  b.classList.toggle('dark', dark);
-}
+/* Hell/Dunkel übernimmt W5D_GetTileJS (w5tTheme); ohne Design-Modul bleibt der helle Modus */
+function theme() { if (typeof w5tTheme === 'function') w5tTheme(); }
+
 
 /* Neustart läuft: angefordert vor weniger als 3 min und Bridge seitdem noch nicht wieder online gemeldet */
 function restarting(s) {
@@ -284,7 +163,7 @@ function render() {
     + '<button class="tg' + (s.join ? ' on' : '') + '" id="join" aria-label="Beitritt zum Netzwerk zulassen"' + (s.canJoin && s.online !== false ? '' : ' disabled') + '></button></div>';
   if (s.join && s.joinEnd) {
     var total = Math.max(1, s.joinEnd - (s.joinStart || s.joinEnd - 254));
-    h += '<div class="prog"><i id="jp" style="width:' + Math.max(0, Math.min(100, left / total * 100)) + '%"></i></div>';
+    h += '<div class="bar"><div class="tr"><i id="jp" style="width:' + Math.max(0, Math.min(100, left / total * 100)) + '%"></i></div></div>';
   }
   var nd = s.newDevices || [];
   if (s.join && !nd.length) h += '<div class="hint">' + (s.listening === false ? 'Kachel ist nicht mit dem MQTT-Server verbunden: neue Geräte werden nicht angezeigt.' : 'Neue Geräte erscheinen hier, sobald sie beitreten.') + '</div>';
